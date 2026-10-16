@@ -1,0 +1,63 @@
+name: deploy to gitaction-ubuntu
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - master
+
+jobs:
+  deploy:
+    if: github.event.pull_request.merged == true
+    runs-on: self-hosted
+    env:
+      DEPLOY_DIR: /home/tejaswini/spring-demo
+
+    steps:
+      - name: checkout master
+        uses: actions/checkout@v7
+        with:
+          ref: master
+
+      - name: setup jdk
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: maven
+
+      - name: check java version
+        run: |
+          java -version
+          javac -version
+
+      - name: build application
+        run: |
+          chmod +x mvnw
+          ./mvnw clean package -DskipTests
+
+      - name: stop the old application
+        run: |
+          if [ -f "$DEPLOY_DIR/app.pid" ]; then
+            PID=$(cat "$DEPLOY_DIR/app.pid")
+            if kill -0 "$PID" 2>/dev/null; then
+              kill "$PID"
+              sleep 2
+            fi
+            rm -f "$DEPLOY_DIR/app.pid"
+          fi
+
+      - name: copy the new application
+        run: |
+          mkdir -p "$DEPLOY_DIR"
+          cp target/app.jar "$DEPLOY_DIR/app.jar"
+
+      - name: start the application
+        run: |
+          cd "$DEPLOY_DIR"
+          RUNNER_TRACKING_ID="" nohup java -jar app.jar > app.log 2>&1 &
+          echo $! > app.pid
+
+      - name: verify deployment
+        run: |
+          curl --fail  http://localhost:9090/hello
