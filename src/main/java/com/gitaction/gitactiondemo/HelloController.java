@@ -20,4 +20,10 @@ public class HelloController {
     public String hi() {
         return "I am saying Hi!";
     }
+
+    @GetMapping("/hi/hello")
+    public String hiHello() {
+        return "I am saying Hi to you";
+    }
+
 }
